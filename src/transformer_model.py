@@ -69,6 +69,9 @@ def scaled_dot_product_attention(q, k, v, mask):
 
 class MultiHeadAttention(tf.keras.layers.Layer):
     def __init__(self, d_model, num_heads):
+        """
+            define multihead attention
+        """
         super(MultiHeadAttention, self).__init__()
         self.num_heads = num_heads
         self.d_model = d_model
@@ -91,6 +94,9 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
     def call(self, v, k, q, mask):
+        """
+            multihead attention forward step
+        """
         batch_size = tf.shape(q)[0]
 
         q = self.wq(q)  # (batch_size, seq_len, d_model)
@@ -101,8 +107,6 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         k = self.split_heads(k, batch_size)  # (batch_size, num_heads, seq_len_k, depth)
         v = self.split_heads(v, batch_size)  # (batch_size, num_heads, seq_len_v, depth)
 
-        # scaled_attention.shape == (batch_size, num_heads, seq_len_q, depth)
-        # attention_weights.shape == (batch_size, num_heads, seq_len_q, seq_len_k)
         scaled_attention, attention_weights = scaled_dot_product_attention(
             q, k, v, mask)
 
@@ -123,6 +127,10 @@ def point_wise_feed_forward_network(d_model, dff):
 
 class DecoderLayer(tf.keras.layers.Layer):
     def __init__(self, d_model, num_heads, dff, rate=0.1):
+        """
+            define a decoder-layerl, with multihead self-attention, a point-wise fully-connected layer, layernormalization
+            and dropout layers
+        """
         super(DecoderLayer, self).__init__()
 
         self.mha1 = MultiHeadAttention(d_model, num_heads)
@@ -137,8 +145,9 @@ class DecoderLayer(tf.keras.layers.Layer):
 
     def call(self, x, training,
            look_ahead_mask):
-        # enc_output.shape == (batch_size, input_seq_len, d_model)
-
+        """
+            transformer-decoder layer forward step
+        """
         attn1, _ = self.mha1(x, x, x, look_ahead_mask)  # (batch_size, target_seq_len, d_model)
         attn1 = self.dropout1(attn1, training=training)
         out1 = self.layernorm1(attn1 + x)
@@ -152,6 +161,10 @@ class DecoderLayer(tf.keras.layers.Layer):
 class TransformerDecoder(tf.keras.Model):
     def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size,
                maximum_position_encoding, rate=0.1):
+        """
+            define a transformer-decoder based language model, with embedding layer
+            num_layers of transformer-decoder and two fully connected layer as output
+        """
         super(TransformerDecoder, self).__init__()
 
         self.d_model = d_model
@@ -170,8 +183,10 @@ class TransformerDecoder(tf.keras.Model):
         self.look_ahead_mask = create_look_ahead_mask(maximum_position_encoding)
     
     def call(self, x, training):
+        """
+            transformer-decoder model forward step
+        """
         seq_len = tf.shape(x)[1]
-        # attention_weights = {}
 
         x = self.embedding(x)  # (batch_size, target_seq_len, d_model)
         x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
@@ -183,14 +198,19 @@ class TransformerDecoder(tf.keras.Model):
             x = self.dec_layers[i](x, training,
                                                  self.look_ahead_mask)
 
-            # attention_weights[f'decoder_layer{i+1}_block1'] = block1
 
         x = self.final_layer(x)
-        # x.shape == (batch_size, target_seq_len, d_model)
         return x
     
 class TransformerGenerator(tf.keras.Model):
     def __init__(self, model, chars_from_ids, ids_from_chars, temperature=1.0):
+
+        """
+            define transformer based text generator
+            
+            Temperature: - is low the model will generate the most probable character
+            if high the output will be more diverse
+        """
         super().__init__()
         self.temperature = temperature
         self.model = model
@@ -209,6 +229,11 @@ class TransformerGenerator(tf.keras.Model):
 
         
     def generate_text(self, starting_text, length):
+        """
+            generate length long text, starting with starting_text
+        """
+        
+        #generate new character as long as result is shorter than length
         for i in range(length):
             inputs = tf.constant([starting_text[-100:]])
             input_chars = tf.strings.unicode_split(inputs, 'UTF-8')

@@ -3,6 +3,10 @@ import time
 
 class LSTMModel(tf.keras.Model):
     def __init__(self, vocab_size, embedding_dim, rnn_units):
+        """
+            define an lstm language model, with embedding layer
+            an LSTM layer and a fully-connected layer
+        """
         super().__init__(self)
         self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim)
         self.lstm = tf.keras.layers.LSTM(rnn_units,
@@ -11,6 +15,9 @@ class LSTMModel(tf.keras.Model):
         self.dense = tf.keras.layers.Dense(vocab_size)
 
     def call(self, inputs, states=None, return_state=False, training=False):
+        """
+            forward step of the model, return states if return_states is True
+        """
         x = inputs
         x = self.embedding(x, training=training)
         if states is None:
@@ -25,6 +32,12 @@ class LSTMModel(tf.keras.Model):
         
 class RNNGenerator(tf.keras.Model):
     def __init__(self, model, chars_from_ids, ids_from_chars, temperature=1.0):
+        """
+            define rnn based text generator
+            
+            Temperature: - is low the model will generate the most probable character
+            if high the output will be more diverse
+        """
         super().__init__()
         self.temperature = temperature
         self.model = model
@@ -42,11 +55,15 @@ class RNNGenerator(tf.keras.Model):
         self.prediction_mask = tf.sparse.to_dense(sparse_mask)
 
     def generate_text(self, starting_text, length):
+        """
+            generate length long text, starting with starting_text
+        """
         start = time.time()
         states = None
         next_char = tf.constant([starting_text])
         result = [next_char]
 
+        #generate new character as long as result is shorter than length
         for n in range(length):
             next_char, states = self.generate_one_step(next_char, states=states)
             result.append(next_char)
